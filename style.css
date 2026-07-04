@@ -213,3 +213,31 @@ header p{
     background:#74c043;
     color:#fff;
 }
+.day-select{
+    max-width:1200px;
+    margin:20px auto 10px;
+    padding:0 20px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.day-select label{
+    font-weight:600;
+    color:#555;
+}
+
+.day-select select{
+    padding:10px 16px;
+    border:1px solid #ddd;
+    border-radius:12px;
+    font-size:15px;
+    background:#fff;
+    cursor:pointer;
+    min-width:170px;
+    outline:none;
+}
+
+.day-select select:focus{
+    border-color:#74c043;
+}
