@@ -1,57 +1,58 @@
 const gallery = document.getElementById("gallery");
 const dayFilters = document.getElementById("dayFilters");
 
-const url =
-`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${CONFIG.SHEET_NAME}&tqx=out:json`;
+const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${CONFIG.SHEET_NAME}&tqx=out:json`;
 
 let allRows = [];
 let selectedDay = "all";
 let selectedType = "Tümü";
 
 fetch(url)
-.then(res => res.text())
-.then(text => {
+    .then(res => res.text())
+    .then(text => {
 
-    const json = JSON.parse(text.substring(47).slice(0,-2));
+        const json = JSON.parse(text.substring(47).slice(0, -2));
 
-    allRows = json.table.rows.reverse();
+        allRows = json.table.rows.reverse();
 
-    createDayButtons();
+        createDayButtons();
 
-    render();
+        render();
 
-})
-.catch(err => {
+    })
+    .catch(err => {
 
-    gallery.innerHTML = `<h2>Veriler okunamadı.</h2>`;
+        console.error(err);
 
-    console.error(err);
+        gallery.innerHTML = `
+            <h2>Veriler okunamadı.</h2>
+        `;
 
-});
+    });
 
-function createDayButtons(){
+function createDayButtons() {
 
-    for(let i=1;i<=28;i++){
+    dayFilters.innerHTML = `
+        <button class="day-btn active" data-day="all">Tümü</button>
+    `;
 
-        const btn=document.createElement("button");
+    for (let i = 1; i <= 28; i++) {
 
-        btn.className="day-btn";
-
-        btn.dataset.day=i;
-
-        btn.innerText=i+". Gün";
-
-        dayFilters.appendChild(btn);
+        dayFilters.innerHTML += `
+            <button class="day-btn" data-day="${i}">
+                ${i}. Gün
+            </button>
+        `;
 
     }
 
 }
 
-function render(){
+function render() {
 
-    gallery.innerHTML="";
+    gallery.innerHTML = "";
 
-    allRows.forEach(r=>{
+    allRows.forEach(r => {
 
         const c = r.c;
 
@@ -65,76 +66,110 @@ function render(){
         const walk = c[9]?.v || "";
         const extra = c[12]?.v || "";
 
-        const image =
-            breakfast ||
-            lunch ||
-            dinner ||
-            walk ||
-            extra;
+        // Gün filtresi
 
-        if(!image) return;
+        if (selectedDay !== "all") {
 
-        if(selectedDay !== "all"){
-
-            if(!day.startsWith(selectedDay + ".")) return;
+            if (!day.startsWith(selectedDay + ".")) return;
 
         }
 
-        if(selectedType !== "Tümü"){
+        // Tür filtresi
 
-            if(type !== selectedType) return;
+        if (selectedType !== "Tümü") {
+
+            const typeMap = {
+                "Kahvaltı": "Sabah Kahvaltısı",
+                "Öğle": "Öğle Yemeği",
+                "Akşam": "Akşam Yemeği",
+                "Yürüyüş": "Yürüyüş"
+            };
+
+            if (type !== typeMap[selectedType]) return;
 
         }
+
+        // Doğru fotoğrafı seç
+
+        let image = "";
+
+        switch (type) {
+
+            case "Sabah Kahvaltısı":
+                image = breakfast;
+                break;
+
+            case "Öğle Yemeği":
+                image = lunch;
+                break;
+
+            case "Akşam Yemeği":
+                image = dinner;
+                break;
+
+            case "Yürüyüş":
+                image = walk;
+                break;
+
+            default:
+                image = extra;
+                break;
+
+        }
+
+        if (!image) return;
 
         gallery.innerHTML += `
+
             <div class="card">
 
-                <img src="${image}" loading="lazy">
+                <img src="${image}" loading="lazy" alt="${name}">
 
                 <div class="info">
 
                     <h3>${name}</h3>
 
-                    <p>${day}</p>
+                    <p>📅 ${day}</p>
 
-                    <p>${type}</p>
+                    <p>🍽️ ${type}</p>
 
                 </div>
 
             </div>
+
         `;
 
     });
 
 }
 
-dayFilters.addEventListener("click",(e)=>{
+dayFilters.addEventListener("click", (e) => {
 
-    if(!e.target.classList.contains("day-btn")) return;
+    if (!e.target.classList.contains("day-btn")) return;
 
     document
         .querySelectorAll(".day-btn")
-        .forEach(btn=>btn.classList.remove("active"));
+        .forEach(btn => btn.classList.remove("active"));
 
     e.target.classList.add("active");
 
-    selectedDay=e.target.dataset.day;
+    selectedDay = e.target.dataset.day;
 
     render();
 
 });
 
-document.querySelector(".filters").addEventListener("click",(e)=>{
+document.querySelector(".filters").addEventListener("click", (e) => {
 
-    if(e.target.tagName!=="BUTTON") return;
+    if (e.target.tagName !== "BUTTON") return;
 
     document
         .querySelectorAll(".filters button")
-        .forEach(btn=>btn.classList.remove("active"));
+        .forEach(btn => btn.classList.remove("active"));
 
     e.target.classList.add("active");
 
-    selectedType=e.target.innerText;
+    selectedType = e.target.innerText.trim();
 
     render();
 
