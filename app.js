@@ -1,5 +1,5 @@
 const gallery = document.getElementById("gallery");
-const dayFilters = document.getElementById("dayFilters");
+const daySelect = document.getElementById("daySelect");
 
 const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${CONFIG.SHEET_NAME}&tqx=out:json`;
 
@@ -15,7 +15,7 @@ fetch(url)
 
         allRows = json.table.rows.reverse();
 
-        createDayButtons();
+        createDayOptions();
 
         render();
 
@@ -30,18 +30,18 @@ fetch(url)
 
     });
 
-function createDayButtons() {
+function createDayOptions() {
 
-    dayFilters.innerHTML = `
-        <button class="day-btn active" data-day="all">Tümü</button>
+    daySelect.innerHTML = `
+        <option value="all">Tüm Günler</option>
     `;
 
     for (let i = 1; i <= 28; i++) {
 
-        dayFilters.innerHTML += `
-            <button class="day-btn" data-day="${i}">
+        daySelect.innerHTML += `
+            <option value="${i}">
                 ${i}. Gün
-            </button>
+            </option>
         `;
 
     }
@@ -74,7 +74,7 @@ function render() {
 
         }
 
-        // Tür filtresi
+        // Kategori filtresi
 
         if (selectedType !== "Tümü") {
 
@@ -89,7 +89,7 @@ function render() {
 
         }
 
-        // Doğru fotoğrafı seç
+        // Fotoğraf seçimi
 
         let image = "";
 
@@ -120,7 +120,6 @@ function render() {
         if (!image) return;
 
         gallery.innerHTML += `
-
             <div class="card">
 
                 <img src="${image}" loading="lazy" alt="${name}">
@@ -136,28 +135,23 @@ function render() {
                 </div>
 
             </div>
-
         `;
 
     });
 
 }
 
-dayFilters.addEventListener("click", (e) => {
+// Gün seçimi
 
-    if (!e.target.classList.contains("day-btn")) return;
+daySelect.addEventListener("change", (e) => {
 
-    document
-        .querySelectorAll(".day-btn")
-        .forEach(btn => btn.classList.remove("active"));
-
-    e.target.classList.add("active");
-
-    selectedDay = e.target.dataset.day;
+    selectedDay = e.target.value;
 
     render();
 
 });
+
+// Kategori seçimi
 
 document.querySelector(".filters").addEventListener("click", (e) => {
 
