@@ -42,7 +42,6 @@ async function init() {
         bindEvents();
 
         const rows = await fetchSheetRows();
-
         allItems = normalizeRows(rows);
 
         applyFilters();
@@ -61,7 +60,9 @@ async function init() {
 async function fetchSheetRows() {
     const response = await fetch(url);
     const text = await response.text();
-    const json = JSON.parse(text.substring(47).slice(0, -2));
+
+    const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+    const json = JSON.parse(jsonText);
 
     return json.table.rows.reverse();
 }
@@ -70,7 +71,7 @@ function normalizeRows(rows) {
     const items = [];
 
     rows.forEach(row => {
-        const c = row.c;
+        const c = row.c || [];
 
         const name = clean(c[3]?.v);
         const day = clean(c[4]?.v);
@@ -103,7 +104,6 @@ function normalizeRows(rows) {
                 day,
                 type: photo.category,
                 label: photo.label,
-                rawImage: photo.image,
                 image: convertImageUrl(photo.image)
             });
         });
@@ -146,11 +146,11 @@ function renderGallery(items) {
         <article class="card" data-index="${index}">
             <div class="card-image">
                 <img
-                    src="${escapeHTML(item.image)}"
-                    loading="lazy"
-                    alt=""
-                    onerror="this.style.display='none'; this.parentElement.classList.add('image-error');"
-                >
+    src="${escapeHTML(item.image)}"
+    loading="lazy"
+    alt="${escapeHTML(item.name || "Fotoğraf")}"
+    referrerpolicy="no-referrer"
+>
             </div>
 
             <div class="info">
@@ -164,7 +164,11 @@ function renderGallery(items) {
 }
 
 function updateStats(items) {
-    const names = new Set(items.map(item => item.name).filter(Boolean));
+    const names = new Set(
+        items
+            .map(item => item.name)
+            .filter(Boolean)
+    );
 
     photoCount.textContent = items.length;
     participantCount.textContent = names.size;
@@ -202,11 +206,15 @@ function bindEvents() {
     closeBtn.addEventListener("click", closeLightbox);
 
     lightbox.addEventListener("click", event => {
-        if (event.target === lightbox) closeLightbox();
+        if (event.target === lightbox) {
+            closeLightbox();
+        }
     });
 
     document.addEventListener("keydown", event => {
-        if (event.key === "Escape") closeLightbox();
+        if (event.key === "Escape") {
+            closeLightbox();
+        }
     });
 }
 
@@ -230,31 +238,11 @@ function closeLightbox() {
 function convertImageUrl(value) {
     if (!value) return "";
 
-    const input = String(value).trim();
-
-    const driveId = extractGoogleDriveId(input);
-
-    if (driveId) {
-        return `https://drive.google.com/thumbnail?id=${driveId}&sz=w1600`;
-    }
-
-    return input;
-}
-
-function extractGoogleDriveId(url) {
-    const patterns = [
-        /\/file\/d\/([^/]+)/,
-        /\/d\/([^/]+)/,
-        /[?&]id=([^&]+)/,
-        /thumbnail\?id=([^&]+)/
-    ];
-
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match && match[1]) return match[1];
-    }
-
-    return "";
+    return String(value)
+        .trim()
+        .replace(/&amp;/g, "&")
+        .replace(/\\u003d/g, "=")
+        .replace(/\\u0026/g, "&");
 }
 
 function clean(value) {
