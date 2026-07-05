@@ -263,7 +263,8 @@ function convertImageUrl(value) {
 }
 
 function clean(value) {
-    return value ? String(value).trim() : "";
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
 }
 
 function escapeHTML(value) {

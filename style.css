@@ -332,3 +332,8 @@ main{
     font-weight:700;
     text-transform:uppercase;
 }
+.weight-value{
+    max-width:100%;
+    overflow-wrap:anywhere;
+    font-size:34px;
+}
