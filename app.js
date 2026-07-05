@@ -52,7 +52,7 @@ async function init() {
 
         gallery.innerHTML = `
             <div class="empty">
-                Veriler okunamadı. Lütfen Google Sheets bağlantısını kontrol edin.
+                Veriler okunamadı. Google Sheets bağlantısını kontrol edin.
             </div>
         `;
     }
@@ -61,7 +61,6 @@ async function init() {
 async function fetchSheetRows() {
     const response = await fetch(url);
     const text = await response.text();
-
     const json = JSON.parse(text.substring(47).slice(0, -2));
 
     return json.table.rows.reverse();
@@ -77,45 +76,17 @@ function normalizeRows(rows) {
         const day = clean(c[4]?.v);
         const type = clean(c[5]?.v);
 
-        const photos = [
-            {
-                category: "Sabah Kahvaltısı",
-                label: "Kahvaltı",
-                image: clean(c[6]?.v)
-            },
-            {
-                category: "Öğle Yemeği",
-                label: "Öğle",
-                image: clean(c[7]?.v)
-            },
-            {
-                category: "Akşam Yemeği",
-                label: "Akşam",
-                image: clean(c[8]?.v)
-            },
-            {
-                category: "Yürüyüş",
-                label: "Yürüyüş",
-                image: clean(c[9]?.v)
-            },
-            {
-                category: "Ara Öğün",
-                label: "Ara Öğün",
-                image: clean(c[10]?.v)
-            },
-            {
-                category: "Su",
-                label: "Su",
-                image: clean(c[11]?.v)
-            },
-            {
-                category: "Diğer",
-                label: "Diğer",
-                image: clean(c[12]?.v)
-            }
+        const photoMap = [
+            { category: "Sabah Kahvaltısı", label: "Kahvaltı", image: clean(c[6]?.v) },
+            { category: "Öğle Yemeği", label: "Öğle", image: clean(c[7]?.v) },
+            { category: "Akşam Yemeği", label: "Akşam", image: clean(c[8]?.v) },
+            { category: "Yürüyüş", label: "Yürüyüş", image: clean(c[9]?.v) },
+            { category: "Ara Öğün", label: "Ara Öğün", image: clean(c[10]?.v) },
+            { category: "Su", label: "Su", image: clean(c[11]?.v) },
+            { category: "Diğer", label: "Diğer", image: clean(c[12]?.v) }
         ];
 
-        photos.forEach(photo => {
+        photoMap.forEach(photo => {
             if (!photo.image) return;
 
             if (
@@ -132,7 +103,8 @@ function normalizeRows(rows) {
                 day,
                 type: photo.category,
                 label: photo.label,
-                image: convertGoogleDriveUrl(photo.image)
+                rawImage: photo.image,
+                image: convertImageUrl(photo.image)
             });
         });
     });
@@ -170,34 +142,29 @@ function renderGallery(items) {
         return;
     }
 
-    gallery.innerHTML = items.map((item, index) => {
-        return `
-            <article class="card" data-index="${index}">
-                <div class="card-image">
-                    <img 
-                        src="${escapeHTML(item.image)}" 
-                        loading="lazy" 
-                        alt="${escapeHTML(item.name || "Fotoğraf")}"
-                    >
-                </div>
+    gallery.innerHTML = items.map((item, index) => `
+        <article class="card" data-index="${index}">
+            <div class="card-image">
+                <img
+                    src="${escapeHTML(item.image)}"
+                    loading="lazy"
+                    alt=""
+                    onerror="this.style.display='none'; this.parentElement.classList.add('image-error');"
+                >
+            </div>
 
-                <div class="info">
-                    <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
-                    <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                    <p>🍽️ ${escapeHTML(item.type || "Kategori yok")}</p>
-                    <span class="badge">🌿 Özge Lifestyle</span>
-                </div>
-            </article>
-        `;
-    }).join("");
+            <div class="info">
+                <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
+                <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
+                <p>🍽️ ${escapeHTML(item.type || "Kategori yok")}</p>
+                <span class="badge">🌿 Özge Lifestyle</span>
+            </div>
+        </article>
+    `).join("");
 }
 
 function updateStats(items) {
-    const names = new Set(
-        items
-            .map(item => item.name)
-            .filter(Boolean)
-    );
+    const names = new Set(items.map(item => item.name).filter(Boolean));
 
     photoCount.textContent = items.length;
     participantCount.textContent = names.size;
@@ -224,12 +191,9 @@ function bindEvents() {
 
     gallery.addEventListener("click", event => {
         const card = event.target.closest(".card");
-
         if (!card) return;
 
-        const index = Number(card.dataset.index);
-        const item = filteredItems[index];
-
+        const item = filteredItems[Number(card.dataset.index)];
         if (!item) return;
 
         openLightbox(item);
@@ -238,15 +202,11 @@ function bindEvents() {
     closeBtn.addEventListener("click", closeLightbox);
 
     lightbox.addEventListener("click", event => {
-        if (event.target === lightbox) {
-            closeLightbox();
-        }
+        if (event.target === lightbox) closeLightbox();
     });
 
     document.addEventListener("keydown", event => {
-        if (event.key === "Escape") {
-            closeLightbox();
-        }
+        if (event.key === "Escape") closeLightbox();
     });
 }
 
@@ -267,22 +227,34 @@ function closeLightbox() {
     document.body.style.overflow = "";
 }
 
-function convertGoogleDriveUrl(value) {
+function convertImageUrl(value) {
     if (!value) return "";
 
-    const url = String(value).trim();
+    const input = String(value).trim();
 
-    const driveMatch = url.match(/\/d\/([^/]+)/);
-    if (driveMatch && driveMatch[1]) {
-        return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+    const driveId = extractGoogleDriveId(input);
+
+    if (driveId) {
+        return `https://drive.google.com/thumbnail?id=${driveId}&sz=w1600`;
     }
 
-    const idMatch = url.match(/[?&]id=([^&]+)/);
-    if (idMatch && idMatch[1]) {
-        return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    return input;
+}
+
+function extractGoogleDriveId(url) {
+    const patterns = [
+        /\/file\/d\/([^/]+)/,
+        /\/d\/([^/]+)/,
+        /[?&]id=([^&]+)/,
+        /thumbnail\?id=([^&]+)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
     }
 
-    return url;
+    return "";
 }
 
 function clean(value) {

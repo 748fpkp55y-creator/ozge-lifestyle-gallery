@@ -302,3 +302,16 @@ main{
         max-height:72vh;
     }
 }
+.card-image.image-error{
+    min-height:180px;
+    background:#e8eee6;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.card-image.image-error::after{
+    content:"Fotoğraf yüklenemedi";
+    color:#718075;
+    font-size:14px;
+}
