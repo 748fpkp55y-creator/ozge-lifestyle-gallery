@@ -78,8 +78,12 @@ function normalizeRows(rows) {
         const dinnerPhoto = clean(c[9]);
         const walkPhoto = clean(c[10]);
 
-        const weightText = clean(c[12]);
-        const extraPhoto = clean(c[13]);
+        const oldWeightField = clean(c[11]); // L sütunu: eski tartı görseli olabilir
+        const weightText = clean(c[12]);     // M sütunu: manuel kilo
+        const extraPhoto = clean(c[13]);     // N sütunu: diğer fotoğraf
+
+        const weightPhoto = isImageUrl(oldWeightField) ? oldWeightField : "";
+        const finalWeightText = weightText || (!isImageUrl(oldWeightField) ? oldWeightField : "");
 
         const photoMap = [
             { type: "Sabah Kahvaltısı", label: "Kahvaltı", image: breakfastPhoto },
@@ -87,7 +91,7 @@ function normalizeRows(rows) {
             { type: "Akşam Yemeği", label: "Akşam", image: dinnerPhoto },
             { type: "Yürüyüş", label: "Yürüyüş", image: walkPhoto },
             { type: "Su", label: "Su", value: waterAmount, unit: "", icon: "💧" },
-            { type: "Tartı", label: "Tartı", value: weightText, unit: "kg", icon: "⚖️" },
+            { type: "Tartı", label: "Tartı", image: weightPhoto, value: finalWeightText, unit: "kg", icon: "⚖️" },
             { type: "Diğer", label: "Diğer", image: extraPhoto }
         ];
 
@@ -286,6 +290,10 @@ function normalizeText(value) {
     return String(value || "")
         .trim()
         .toLocaleLowerCase("tr");
+}
+
+function isImageUrl(value) {
+    return /^https?:\/\//i.test(String(value || ""));
 }
 
 function getTypeIcon(type) {
