@@ -25,9 +25,7 @@ const categoryMap = {
     "Kahvaltı": "Sabah Kahvaltısı",
     "Öğle": "Öğle Yemeği",
     "Akşam": "Akşam Yemeği",
-    "Ara Öğün": "Ara Öğün",
     "Yürüyüş": "Yürüyüş",
-    "Su": "Su",
     "Tartı": "Tartı",
     "Diğer": "Diğer"
 };
@@ -75,26 +73,47 @@ function normalizeRows(rows) {
 
         const name = clean(c[3]?.v);
         const day = clean(c[4]?.v);
-        const type = clean(c[5]?.v);
+        const selectedType = clean(c[5]?.v);
 
         const photoMap = [
-            { category: "Sabah Kahvaltısı", label: "Kahvaltı", image: clean(c[6]?.v) },
-            { category: "Öğle Yemeği", label: "Öğle", image: clean(c[7]?.v) },
-            { category: "Akşam Yemeği", label: "Akşam", image: clean(c[8]?.v) },
-            { category: "Yürüyüş", label: "Yürüyüş", image: clean(c[9]?.v) },
-            { category: "Ara Öğün", label: "Ara Öğün", image: clean(c[10]?.v) },
-            { category: "Su", label: "Su", image: clean(c[11]?.v) },
-            { category: "Diğer", label: "Diğer", image: clean(c[12]?.v) }
+            {
+                category: "Sabah Kahvaltısı",
+                label: "Kahvaltı",
+                image: clean(c[6]?.v)
+            },
+            {
+                category: "Öğle Yemeği",
+                label: "Öğle",
+                image: clean(c[7]?.v)
+            },
+            {
+                category: "Akşam Yemeği",
+                label: "Akşam",
+                image: clean(c[8]?.v)
+            },
+            {
+                category: "Yürüyüş",
+                label: "Yürüyüş",
+                image: clean(c[9]?.v)
+            },
+            {
+                category: "Tartı",
+                label: "Tartı",
+                image: clean(c[10]?.v),
+                weight: clean(c[11]?.v)
+            }
         ];
 
         photoMap.forEach(photo => {
-            if (!photo.image) return;
+            const hasImage = Boolean(photo.image);
+            const hasWeight = Boolean(photo.weight);
+
+            if (!hasImage && !hasWeight) return;
 
             if (
-                type &&
-                photo.category !== type &&
-                photo.label !== type &&
-                photo.category !== "Diğer"
+                selectedType &&
+                photo.category !== selectedType &&
+                photo.label !== selectedType
             ) {
                 return;
             }
@@ -104,7 +123,8 @@ function normalizeRows(rows) {
                 day,
                 type: photo.category,
                 label: photo.label,
-                image: convertImageUrl(photo.image)
+                image: convertImageUrl(photo.image),
+                weight: photo.weight || ""
             });
         });
     });
@@ -136,31 +156,45 @@ function renderGallery(items) {
     if (!items.length) {
         gallery.innerHTML = `
             <div class="empty">
-                Bu filtrelere uygun fotoğraf bulunamadı.
+                Bu filtrelere uygun kayıt bulunamadı.
             </div>
         `;
         return;
     }
 
-    gallery.innerHTML = items.map((item, index) => `
-        <article class="card" data-index="${index}">
-            <div class="card-image">
-                <img
-    src="${escapeHTML(item.image)}"
-    loading="lazy"
-    alt="${escapeHTML(item.name || "Fotoğraf")}"
-    referrerpolicy="no-referrer"
->
-            </div>
+    gallery.innerHTML = items.map((item, index) => {
+        const visual = item.image
+            ? `
+                <div class="card-image">
+                    <img
+                        src="${escapeHTML(item.image)}"
+                        loading="lazy"
+                        alt="${escapeHTML(item.name || "Fotoğraf")}"
+                        referrerpolicy="no-referrer"
+                    >
+                </div>
+            `
+            : `
+                <div class="weight-card">
+                    <div class="weight-icon">⚖️</div>
+                    <div class="weight-value">${escapeHTML(item.weight)}</div>
+                    <div class="weight-label">kg</div>
+                </div>
+            `;
 
-            <div class="info">
-                <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
-                <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                <p>🍽️ ${escapeHTML(item.type || "Kategori yok")}</p>
-                <span class="badge">🌿 Özge Lifestyle</span>
-            </div>
-        </article>
-    `).join("");
+        return `
+            <article class="card" data-index="${index}">
+                ${visual}
+
+                <div class="info">
+                    <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
+                    <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
+                    <p>${item.type === "Tartı" ? "⚖️" : "🍽️"} ${escapeHTML(item.type || "Kategori yok")}</p>
+                    <span class="badge">🌿 Özge Lifestyle</span>
+                </div>
+            </article>
+        `;
+    }).join("");
 }
 
 function updateStats(items) {
@@ -198,7 +232,7 @@ function bindEvents() {
         if (!card) return;
 
         const item = filteredItems[Number(card.dataset.index)];
-        if (!item) return;
+        if (!item || !item.image) return;
 
         openLightbox(item);
     });

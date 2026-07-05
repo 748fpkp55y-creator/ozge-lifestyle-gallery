@@ -302,3 +302,33 @@ main{
         max-height:72vh;
     }
 }
+.weight-card{
+    min-height:210px;
+    background:linear-gradient(135deg,#eaf3e4,#ffffff);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:28px 18px;
+}
+
+.weight-icon{
+    font-size:38px;
+    margin-bottom:12px;
+}
+
+.weight-value{
+    font-size:42px;
+    font-weight:900;
+    color:var(--text);
+    line-height:1;
+}
+
+.weight-label{
+    margin-top:6px;
+    color:var(--muted);
+    font-size:15px;
+    font-weight:700;
+    text-transform:uppercase;
+}
