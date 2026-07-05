@@ -26,6 +26,7 @@ const categoryMap = {
     "Öğle": "Öğle Yemeği",
     "Akşam": "Akşam Yemeği",
     "Yürüyüş": "Yürüyüş",
+    "Su": "Su",
     "Tartı": "Tartı",
     "Diğer": "Diğer"
 };
@@ -46,12 +47,7 @@ async function init() {
 
     } catch (error) {
         console.error(error);
-
-        gallery.innerHTML = `
-            <div class="empty">
-                Veriler okunamadı. Google Sheets bağlantısını kontrol edin.
-            </div>
-        `;
+        gallery.innerHTML = `<div class="empty">Veriler okunamadı.</div>`;
     }
 }
 
@@ -75,45 +71,38 @@ function normalizeRows(rows) {
         const day = clean(c[4]?.v);
         const selectedType = clean(c[5]?.v);
 
+        const waterAmount = clean(c[6]?.v);
+
+        const breakfastPhoto = clean(c[7]?.v);
+        const lunchPhoto = clean(c[8]?.v);
+        const dinnerPhoto = clean(c[9]?.v);
+        const walkPhoto = clean(c[10]?.v);
+
+        const weightPhoto = clean(c[11]?.v);
+        const weightText = clean(c[12]?.v);
+
+        const extraPhoto = clean(c[13]?.v);
+
         const photoMap = [
-            {
-                category: "Sabah Kahvaltısı",
-                label: "Kahvaltı",
-                image: clean(c[6]?.v)
-            },
-            {
-                category: "Öğle Yemeği",
-                label: "Öğle",
-                image: clean(c[7]?.v)
-            },
-            {
-                category: "Akşam Yemeği",
-                label: "Akşam",
-                image: clean(c[8]?.v)
-            },
-            {
-                category: "Yürüyüş",
-                label: "Yürüyüş",
-                image: clean(c[9]?.v)
-            },
-            {
-                category: "Tartı",
-                label: "Tartı",
-                image: clean(c[10]?.v),
-                weight: clean(c[11]?.v)
-            }
+            { type: "Sabah Kahvaltısı", label: "Kahvaltı", image: breakfastPhoto },
+            { type: "Öğle Yemeği", label: "Öğle", image: lunchPhoto },
+            { type: "Akşam Yemeği", label: "Akşam", image: dinnerPhoto },
+            { type: "Yürüyüş", label: "Yürüyüş", image: walkPhoto },
+            { type: "Tartı", label: "Tartı", image: weightPhoto, value: weightText, unit: "kg", icon: "⚖️" },
+            { type: "Su", label: "Su", value: waterAmount, unit: "", icon: "💧" },
+            { type: "Diğer", label: "Diğer", image: extraPhoto }
         ];
 
-        photoMap.forEach(photo => {
-            const hasImage = Boolean(photo.image);
-            const hasWeight = Boolean(photo.weight);
+        photoMap.forEach(item => {
+            const hasImage = Boolean(item.image);
+            const hasValue = Boolean(item.value);
 
-            if (!hasImage && !hasWeight) return;
+            if (!hasImage && !hasValue) return;
 
             if (
                 selectedType &&
-                photo.category !== selectedType &&
-                photo.label !== selectedType
+                item.type !== selectedType &&
+                item.label !== selectedType
             ) {
                 return;
             }
@@ -121,10 +110,12 @@ function normalizeRows(rows) {
             items.push({
                 name,
                 day,
-                type: photo.category,
-                label: photo.label,
-                image: convertImageUrl(photo.image),
-                weight: photo.weight || ""
+                type: item.type,
+                label: item.label,
+                image: convertImageUrl(item.image),
+                value: item.value || "",
+                unit: item.unit || "",
+                icon: item.icon || ""
             });
         });
     });
@@ -154,17 +145,15 @@ function applyFilters() {
 
 function renderGallery(items) {
     if (!items.length) {
-        gallery.innerHTML = `
-            <div class="empty">
-                Bu filtrelere uygun kayıt bulunamadı.
-            </div>
-        `;
+        gallery.innerHTML = `<div class="empty">Bu filtrelere uygun kayıt bulunamadı.</div>`;
         return;
     }
 
     gallery.innerHTML = items.map((item, index) => {
-        const visual = item.image
-            ? `
+        let visual = "";
+
+        if (item.image) {
+            visual = `
                 <div class="card-image">
                     <img
                         src="${escapeHTML(item.image)}"
@@ -173,14 +162,16 @@ function renderGallery(items) {
                         referrerpolicy="no-referrer"
                     >
                 </div>
-            `
-            : `
+            `;
+        } else {
+            visual = `
                 <div class="weight-card">
-                    <div class="weight-icon">⚖️</div>
-                    <div class="weight-value">${escapeHTML(item.weight)}</div>
-                    <div class="weight-label">kg</div>
+                    <div class="weight-icon">${item.icon || "✨"}</div>
+                    <div class="weight-value">${escapeHTML(item.value)}</div>
+                    <div class="weight-label">${escapeHTML(item.unit)}</div>
                 </div>
             `;
+        }
 
         return `
             <article class="card" data-index="${index}">
@@ -189,7 +180,7 @@ function renderGallery(items) {
                 <div class="info">
                     <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
                     <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                    <p>${item.type === "Tartı" ? "⚖️" : "🍽️"} ${escapeHTML(item.type || "Kategori yok")}</p>
+                    <p>${item.type === "Tartı" ? "⚖️" : item.type === "Su" ? "💧" : "🍽️"} ${escapeHTML(item.type)}</p>
                     <span class="badge">🌿 Özge Lifestyle</span>
                 </div>
             </article>
@@ -198,11 +189,7 @@ function renderGallery(items) {
 }
 
 function updateStats(items) {
-    const names = new Set(
-        items
-            .map(item => item.name)
-            .filter(Boolean)
-    );
+    const names = new Set(items.map(item => item.name).filter(Boolean));
 
     photoCount.textContent = items.length;
     participantCount.textContent = names.size;
@@ -240,15 +227,11 @@ function bindEvents() {
     closeBtn.addEventListener("click", closeLightbox);
 
     lightbox.addEventListener("click", event => {
-        if (event.target === lightbox) {
-            closeLightbox();
-        }
+        if (event.target === lightbox) closeLightbox();
     });
 
     document.addEventListener("keydown", event => {
-        if (event.key === "Escape") {
-            closeLightbox();
-        }
+        if (event.key === "Escape") closeLightbox();
     });
 }
 
