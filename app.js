@@ -273,15 +273,13 @@ function convertGoogleDriveUrl(value) {
     const url = String(value).trim();
 
     const driveMatch = url.match(/\/d\/([^/]+)/);
-
     if (driveMatch && driveMatch[1]) {
-        return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+        return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
     }
 
     const idMatch = url.match(/[?&]id=([^&]+)/);
-
     if (idMatch && idMatch[1]) {
-        return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+        return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
     }
 
     return url;
