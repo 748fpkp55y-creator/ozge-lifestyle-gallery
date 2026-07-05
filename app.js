@@ -1,7 +1,6 @@
 const gallery = document.getElementById("gallery");
 const daySelect = document.getElementById("daySelect");
 const categorySelect = document.getElementById("categorySelect");
-
 const photoCount = document.getElementById("photoCount");
 const participantCount = document.getElementById("participantCount");
 
@@ -15,124 +14,82 @@ const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?s
 
 let allItems = [];
 let filteredItems = [];
-
-let state = {
-    day: "all",
-    category: "all"
-};
-
-const categoryMap = {
-    "Kahvaltı": "Sabah Kahvaltısı",
-    "Öğle": "Öğle Yemeği",
-    "Akşam": "Akşam Yemeği",
-    "Yürüyüş": "Yürüyüş",
-    "Su": "Su",
-    "Tartı": "Tartı",
-    "Diğer": "Diğer"
-};
+let state = { day: "all", category: "all" };
 
 init();
 
 async function init() {
-    try {
-        gallery.innerHTML = `<div class="loading">Fotoğraflar yükleniyor...</div>`;
+    gallery.innerHTML = `<div class="loading">Fotoğraflar yükleniyor...</div>`;
+    createDayOptions();
+    bindEvents();
 
-        createDayOptions();
-        bindEvents();
+    const data = await fetchSheetData();
+    allItems = normalizeRows(data.rows, data.headers);
 
-        const rows = await fetchSheetRows();
-        allItems = normalizeRows(rows);
-
-        applyFilters();
-
-    } catch (error) {
-        console.error(error);
-        gallery.innerHTML = `<div class="empty">Veriler okunamadı.</div>`;
-    }
+    applyFilters();
 }
 
-async function fetchSheetRows() {
+async function fetchSheetData() {
     const response = await fetch(url);
     const text = await response.text();
-
     const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
     const json = JSON.parse(jsonText);
 
-    return json.table.rows.reverse();
+    const headers = json.table.cols.map(col => clean(col.label));
+    const rows = json.table.rows.reverse();
+
+    return { headers, rows };
 }
 
-function normalizeRows(rows) {
-    const items = [];
+function normalizeRows(rows, headers) {
+    return rows.map(row => {
+        const get = title => {
+            const index = headers.findIndex(h => normalizeText(h) === normalizeText(title));
+            if (index === -1) return "";
+            return clean(row.c?.[index]);
+        };
 
-    rows.forEach(row => {
-        const c = row.c || [];
+        const name = get("Adınız Soyadınız");
+        const day = get("Bugün Programın Kaçıncı Günü");
+        const type = get("Hangi Bilgiyi Paylaşıyorsunuz");
 
-        const name = clean(c[3]);
-        const day = clean(c[4]);
-        const selectedType = clean(c[5]);
+        const item = {
+            name,
+            day,
+            type,
+            label: type,
+            image: "",
+            value: "",
+            unit: "",
+            icon: ""
+        };
 
-        const waterAmount = clean(c[6]);
+        if (type === "Sabah Kahvaltısı") item.image = get("Sabah Kahvaltısı Fotoğrafı");
+        if (type === "Öğle Yemeği") item.image = get("Öğle Yemeği Fotoğrafı");
+        if (type === "Akşam Yemeği") item.image = get("Akşam Yemeği Fotoğrafı");
+        if (type.includes("Yürüyüş")) item.image = get("Yürüyüş Fotoğrafı");
 
-        const breakfastPhoto = clean(c[7]);
-        const lunchPhoto = clean(c[8]);
-        const dinnerPhoto = clean(c[9]);
-        const walkPhoto = clean(c[10]);
+        if (type === "Su") {
+            item.value = get("Su Miktarı");
+            item.unit = "";
+            item.icon = "💧";
+        }
 
-        const oldWeightField = clean(c[11]); // L sütunu: eski tartı görseli olabilir
-        const weightText = clean(c[12]);     // M sütunu: manuel kilo
-        const extraPhoto = clean(c[13]);     // N sütunu: diğer fotoğraf
+        if (type === "Tartı") {
+            item.image = get("Kilonuz");
+            item.value = get("Kilonuzu yazınız");
+            item.unit = "kg";
+            item.icon = "⚖️";
+        }
 
-        const weightPhoto = isImageUrl(oldWeightField) ? oldWeightField : "";
-        const finalWeightText = weightText || (!isImageUrl(oldWeightField) ? oldWeightField : "");
+        if (type === "Diğer") {
+            item.image = get("Fotoğrafınızı Yükleyin");
+        }
 
-        const photoMap = [
-            { type: "Sabah Kahvaltısı", label: "Kahvaltı", image: breakfastPhoto },
-            { type: "Öğle Yemeği", label: "Öğle", image: lunchPhoto },
-            { type: "Akşam Yemeği", label: "Akşam", image: dinnerPhoto },
-            { type: "Yürüyüş", label: "Yürüyüş", image: walkPhoto },
-            { type: "Su", label: "Su", value: waterAmount, unit: "", icon: "💧" },
-            { type: "Tartı", label: "Tartı", image: weightPhoto, value: finalWeightText, unit: "kg", icon: "⚖️" },
-            { type: "Diğer", label: "Diğer", image: extraPhoto }
-        ];
+        item.image = convertImageUrl(item.image);
 
-        photoMap.forEach(item => {
-            const hasImage = Boolean(item.image);
-            const hasValue = Boolean(item.value);
-
-            if (!hasImage && !hasValue) return;
-
-            if (!matchesSelectedType(selectedType, item)) return;
-
-            items.push({
-                name,
-                day,
-                type: item.type,
-                label: item.label,
-                image: convertImageUrl(item.image),
-                value: item.value || "",
-                unit: item.unit || "",
-                icon: item.icon || ""
-            });
-        });
-    });
-
-    return items;
-}
-
-function matchesSelectedType(selectedType, item) {
-    if (!selectedType) return true;
-
-    const selected = normalizeText(selectedType);
-    const type = normalizeText(item.type);
-    const label = normalizeText(item.label);
-
-    return (
-        selected === type ||
-        selected === label ||
-        selected.includes(label) ||
-        type.includes(selected) ||
-        label.includes(selected)
-    );
+        return item;
+    }).filter(item => item.image || item.value);
 }
 
 function applyFilters() {
@@ -141,12 +98,12 @@ function applyFilters() {
             state.day === "all" ||
             item.day.startsWith(state.day + ".");
 
-        const targetCategory = categoryMap[state.category] || state.category;
+        const selectedCategory = state.category;
 
         const matchesCategory =
-            state.category === "all" ||
-            item.type === targetCategory ||
-            item.label === state.category;
+            selectedCategory === "all" ||
+            normalizeText(item.type).includes(normalizeText(selectedCategory)) ||
+            normalizeText(selectedCategory).includes(normalizeText(item.type));
 
         return matchesDay && matchesCategory;
     });
@@ -162,10 +119,8 @@ function renderGallery(items) {
     }
 
     gallery.innerHTML = items.map((item, index) => {
-        let visual = "";
-
-        if (item.image) {
-            visual = `
+        const visual = item.image
+            ? `
                 <div class="card-image">
                     <img
                         src="${escapeHTML(item.image)}"
@@ -174,25 +129,22 @@ function renderGallery(items) {
                         referrerpolicy="no-referrer"
                     >
                 </div>
-            `;
-        } else {
-            visual = `
+            `
+            : `
                 <div class="weight-card">
                     <div class="weight-icon">${escapeHTML(item.icon || "✨")}</div>
                     <div class="weight-value">${escapeHTML(item.value)}</div>
                     <div class="weight-label">${escapeHTML(item.unit)}</div>
                 </div>
             `;
-        }
 
         return `
             <article class="card" data-index="${index}">
                 ${visual}
-
                 <div class="info">
                     <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
                     <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                    <p>${getTypeIcon(item.type)} ${escapeHTML(item.type || "Kategori yok")}</p>
+                    <p>${getTypeIcon(item.type)} ${escapeHTML(item.type)}</p>
                     <span class="badge">🌿 Özge Lifestyle</span>
                 </div>
             </article>
@@ -202,32 +154,30 @@ function renderGallery(items) {
 
 function updateStats(items) {
     const names = new Set(items.map(item => item.name).filter(Boolean));
-
     photoCount.textContent = items.length;
     participantCount.textContent = names.size;
 }
 
 function createDayOptions() {
     daySelect.innerHTML = `<option value="all">📅 Tüm Günler</option>`;
-
     for (let i = 1; i <= 28; i++) {
         daySelect.innerHTML += `<option value="${i}">${i}. Gün</option>`;
     }
 }
 
 function bindEvents() {
-    daySelect.addEventListener("change", event => {
-        state.day = event.target.value;
+    daySelect.addEventListener("change", e => {
+        state.day = e.target.value;
         applyFilters();
     });
 
-    categorySelect.addEventListener("change", event => {
-        state.category = event.target.value;
+    categorySelect.addEventListener("change", e => {
+        state.category = e.target.value;
         applyFilters();
     });
 
-    gallery.addEventListener("click", event => {
-        const card = event.target.closest(".card");
+    gallery.addEventListener("click", e => {
+        const card = e.target.closest(".card");
         if (!card) return;
 
         const item = filteredItems[Number(card.dataset.index)];
@@ -237,23 +187,19 @@ function bindEvents() {
     });
 
     closeBtn.addEventListener("click", closeLightbox);
-
-    lightbox.addEventListener("click", event => {
-        if (event.target === lightbox) closeLightbox();
+    lightbox.addEventListener("click", e => {
+        if (e.target === lightbox) closeLightbox();
     });
 
-    document.addEventListener("keydown", event => {
-        if (event.key === "Escape") closeLightbox();
+    document.addEventListener("keydown", e => {
+        if (e.key === "Escape") closeLightbox();
     });
 }
 
 function openLightbox(item) {
     lightboxImage.src = item.image;
-    lightboxImage.alt = item.name || "Fotoğraf";
-
     lightboxName.textContent = item.name || "İsimsiz Katılımcı";
-    lightboxMeta.textContent = `${item.day || "Gün bilgisi yok"} • ${item.type || "Kategori yok"}`;
-
+    lightboxMeta.textContent = `${item.day} • ${item.type}`;
     lightbox.classList.add("active");
     document.body.style.overflow = "hidden";
 }
@@ -266,7 +212,6 @@ function closeLightbox() {
 
 function convertImageUrl(value) {
     if (!value) return "";
-
     return String(value)
         .trim()
         .replace(/&amp;/g, "&")
@@ -292,14 +237,10 @@ function normalizeText(value) {
         .toLocaleLowerCase("tr");
 }
 
-function isImageUrl(value) {
-    return /^https?:\/\//i.test(String(value || ""));
-}
-
 function getTypeIcon(type) {
     if (type === "Tartı") return "⚖️";
     if (type === "Su") return "💧";
-    if (type === "Yürüyüş") return "🚶";
+    if (type.includes("Yürüyüş")) return "🚶";
     return "🍽️";
 }
 
