@@ -3,47 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Özge Taşkın Lifestyle</title>
-
+    <title>Özge Taşkın Lifestyle Gallery</title>
+    <meta name="description" content="Özge Taşkın Lifestyle 28 Günlük Dönüşüm Galerisi">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<header>
-    <h1>🌿 Özge Taşkın Lifestyle</h1>
-    <p>28 Günlük Dönüşüm Programı</p>
+<header class="hero">
+    <div class="hero-content">
+        <h1>🌿 Özge Taşkın Lifestyle</h1>
+        <p>28 Günlük Dönüşüm Galerisi</p>
+    </div>
 </header>
 
-<div class="day-select">
-    <label for="daySelect">📅 Gün</label>
-
-    <select id="daySelect">
-        <option value="all">Tüm Günler</option>
-    </select>
-</div>
-
-<div class="filters">
-    <button class="active">Tümü</button>
-    <button>Kahvaltı</button>
-    <button>Öğle</button>
-    <button>Akşam</button>
-    <button>Yürüyüş</button>
-</div>
-
-<div class="days" id="days"></div>
-
-<div id="gallery" class="gallery">
-    <div class="loading">
-        Fotoğraflar yükleniyor...
+<section class="toolbar">
+    <div class="select-group">
+        <select id="daySelect">
+            <option value="all">📅 Tüm Günler</option>
+        </select>
     </div>
-</div>
+
+    <div class="select-group">
+        <select id="categorySelect">
+            <option value="all">📂 Tüm Kategoriler</option>
+            <option value="Kahvaltı">Kahvaltı</option>
+            <option value="Öğle">Öğle</option>
+            <option value="Akşam">Akşam</option>
+            <option value="Ara Öğün">Ara Öğün</option>
+            <option value="Yürüyüş">Yürüyüş</option>
+            <option value="Su">Su</option>
+            <option value="Tartı">Tartı</option>
+            <option value="Diğer">Diğer</option>
+        </select>
+    </div>
+</section>
+
+<section class="stats">
+    <div class="stat">
+        <span id="photoCount">0</span>
+        <small>Fotoğraf</small>
+    </div>
+
+    <div class="stat">
+        <span id="participantCount">0</span>
+        <small>Katılımcı</small>
+    </div>
+</section>
+
+<main>
+    <div id="gallery" class="gallery">
+        <div class="loading">Fotoğraflar yükleniyor...</div>
+    </div>
+</main>
 
 <div id="lightbox" class="lightbox">
+    <button id="close" aria-label="Kapat">×</button>
 
-    <span id="close">&times;</span>
+    <img id="lightboxImage" alt="Fotoğraf">
 
-    <img id="lightboxImage">
-
+    <div class="lightbox-info">
+        <h3 id="lightboxName"></h3>
+        <p id="lightboxMeta"></p>
+    </div>
 </div>
 
 <script src="config.js"></script>
