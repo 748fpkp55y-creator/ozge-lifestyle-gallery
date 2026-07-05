@@ -1,254 +1,284 @@
-const gallery = document.getElementById("gallery");
-const daySelect = document.getElementById("daySelect");
-const categorySelect = document.getElementById("categorySelect");
-const photoCount = document.getElementById("photoCount");
-const participantCount = document.getElementById("participantCount");
+document.addEventListener("DOMContentLoaded", () => {
+    const gallery = document.getElementById("gallery");
+    const daySelect = document.getElementById("daySelect");
+    const categorySelect = document.getElementById("categorySelect");
+    const photoCount = document.getElementById("photoCount");
+    const participantCount = document.getElementById("participantCount");
 
-const lightbox = document.getElementById("lightbox");
-const lightboxImage = document.getElementById("lightboxImage");
-const lightboxName = document.getElementById("lightboxName");
-const lightboxMeta = document.getElementById("lightboxMeta");
-const closeBtn = document.getElementById("close");
+    const lightbox = document.getElementById("lightbox");
+    const lightboxImage = document.getElementById("lightboxImage");
+    const lightboxName = document.getElementById("lightboxName");
+    const lightboxMeta = document.getElementById("lightboxMeta");
+    const closeBtn = document.getElementById("close");
 
-const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${CONFIG.SHEET_NAME}&tqx=out:json`;
+    const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${CONFIG.SHEET_NAME}&tqx=out:json`;
 
-let allItems = [];
-let filteredItems = [];
-let state = { day: "all", category: "all" };
+    let allItems = [];
+    let filteredItems = [];
+    let selectedDay = "all";
+    let selectedCategory = "all";
 
-init();
+    init();
 
-async function init() {
-    gallery.innerHTML = `<div class="loading">Fotoğraflar yükleniyor...</div>`;
-    createDayOptions();
-    bindEvents();
+    async function init() {
+        try {
+            gallery.innerHTML = `<div class="loading">Fotoğraflar yükleniyor...</div>`;
 
-    const data = await fetchSheetData();
-    allItems = normalizeRows(data.rows, data.headers);
+            createDayOptions();
+            bindEvents();
 
-    applyFilters();
-}
+            const rows = await fetchRows();
+            allItems = normalizeRows(rows);
 
-async function fetchSheetData() {
-    const response = await fetch(url);
-    const text = await response.text();
-    const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
-    const json = JSON.parse(jsonText);
+            render();
 
-    const headers = json.table.cols.map(col => clean(col.label));
-    const rows = json.table.rows.reverse();
-
-    return { headers, rows };
-}
-
-function normalizeRows(rows, headers) {
-    return rows.map(row => {
-        const get = title => {
-            const index = headers.findIndex(h => normalizeText(h) === normalizeText(title));
-            if (index === -1) return "";
-            return clean(row.c?.[index]);
-        };
-
-        const name = get("Adınız Soyadınız");
-        const day = get("Bugün Programın Kaçıncı Günü");
-        const type = get("Hangi Bilgiyi Paylaşıyorsunuz");
-
-        const item = {
-            name,
-            day,
-            type,
-            label: type,
-            image: "",
-            value: "",
-            unit: "",
-            icon: ""
-        };
-
-        if (type === "Sabah Kahvaltısı") item.image = get("Sabah Kahvaltısı Fotoğrafı");
-        if (type === "Öğle Yemeği") item.image = get("Öğle Yemeği Fotoğrafı");
-        if (type === "Akşam Yemeği") item.image = get("Akşam Yemeği Fotoğrafı");
-        if (type.includes("Yürüyüş")) item.image = get("Yürüyüş Fotoğrafı");
-
-        if (type === "Su") {
-            item.value = get("Su Miktarı");
-            item.unit = "";
-            item.icon = "💧";
+        } catch (err) {
+            console.error(err);
+            gallery.innerHTML = `<div class="empty">Veriler okunamadı.</div>`;
         }
-
-        if (type === "Tartı") {
-            item.image = get("Kilonuz");
-            item.value = get("Kilonuzu yazınız");
-            item.unit = "kg";
-            item.icon = "⚖️";
-        }
-
-        if (type === "Diğer") {
-            item.image = get("Fotoğrafınızı Yükleyin");
-        }
-
-        item.image = convertImageUrl(item.image);
-
-        return item;
-    }).filter(item => item.image || item.value);
-}
-
-function applyFilters() {
-    filteredItems = allItems.filter(item => {
-        const matchesDay =
-            state.day === "all" ||
-            item.day.startsWith(state.day + ".");
-
-        const selectedCategory = state.category;
-
-        const matchesCategory =
-            selectedCategory === "all" ||
-            normalizeText(item.type).includes(normalizeText(selectedCategory)) ||
-            normalizeText(selectedCategory).includes(normalizeText(item.type));
-
-        return matchesDay && matchesCategory;
-    });
-
-    renderGallery(filteredItems);
-    updateStats(filteredItems);
-}
-
-function renderGallery(items) {
-    if (!items.length) {
-        gallery.innerHTML = `<div class="empty">Bu filtrelere uygun kayıt bulunamadı.</div>`;
-        return;
     }
 
-    gallery.innerHTML = items.map((item, index) => {
-        const visual = item.image
-            ? `
-                <div class="card-image">
-                    <img
-                        src="${escapeHTML(item.image)}"
-                        loading="lazy"
-                        alt="${escapeHTML(item.name || "Fotoğraf")}"
-                        referrerpolicy="no-referrer"
-                    >
-                </div>
-            `
-            : `
-                <div class="weight-card">
-                    <div class="weight-icon">${escapeHTML(item.icon || "✨")}</div>
-                    <div class="weight-value">${escapeHTML(item.value)}</div>
-                    <div class="weight-label">${escapeHTML(item.unit)}</div>
-                </div>
+    async function fetchRows() {
+        const res = await fetch(url);
+        const text = await res.text();
+        const jsonText = text.substring(text.indexOf("{"), text.lastIndexOf("}") + 1);
+        const json = JSON.parse(jsonText);
+        return json.table.rows.reverse();
+    }
+
+    function normalizeRows(rows) {
+        const items = [];
+
+        rows.forEach(row => {
+            const c = row.c || [];
+
+            const name = clean(c[3]);
+            const day = clean(c[4]);
+            const type = clean(c[5]);
+
+            const water = clean(c[6]);
+
+            const breakfast = clean(c[7]);
+            const lunch = clean(c[8]);
+            const dinner = clean(c[9]);
+            const walk = clean(c[10]);
+
+            const oldWeightPhoto = clean(c[11]);
+            const manualWeight = clean(c[12]);
+            const extra = clean(c[13]);
+
+            const map = [
+                { type: "Sabah Kahvaltısı", label: "Kahvaltı", image: breakfast },
+                { type: "Öğle Yemeği", label: "Öğle", image: lunch },
+                { type: "Akşam Yemeği", label: "Akşam", image: dinner },
+                { type: "Yürüyüş", label: "Yürüyüş", image: walk },
+                { type: "Su", label: "Su", value: water, unit: "", icon: "💧" },
+                {
+                    type: "Tartı",
+                    label: "Tartı",
+                    image: isUrl(oldWeightPhoto) ? oldWeightPhoto : "",
+                    value: manualWeight || (!isUrl(oldWeightPhoto) ? oldWeightPhoto : ""),
+                    unit: "kg",
+                    icon: "⚖️"
+                },
+                { type: "Diğer", label: "Diğer", image: extra }
+            ];
+
+            map.forEach(item => {
+                if (!item.image && !item.value) return;
+                if (!matchesType(type, item)) return;
+
+                items.push({
+                    name,
+                    day,
+                    type: item.type,
+                    label: item.label,
+                    image: cleanUrl(item.image),
+                    value: item.value || "",
+                    unit: item.unit || "",
+                    icon: item.icon || ""
+                });
+            });
+        });
+
+        return items;
+    }
+
+    function render() {
+        filteredItems = allItems.filter(item => {
+            const dayOk =
+                selectedDay === "all" ||
+                item.day.startsWith(selectedDay + ".");
+
+            const categoryOk =
+                selectedCategory === "all" ||
+                item.label === selectedCategory ||
+                item.type === selectedCategory ||
+                categoryToType(selectedCategory) === item.type;
+
+            return dayOk && categoryOk;
+        });
+
+        updateStats();
+        renderGallery();
+    }
+
+    function renderGallery() {
+        if (!filteredItems.length) {
+            gallery.innerHTML = `<div class="empty">Bu filtrelere uygun kayıt bulunamadı.</div>`;
+            return;
+        }
+
+        gallery.innerHTML = filteredItems.map((item, index) => {
+            const visual = item.image
+                ? `
+                    <div class="card-image">
+                        <img src="${escapeHTML(item.image)}" loading="lazy" alt="${escapeHTML(item.name)}" referrerpolicy="no-referrer">
+                    </div>
+                `
+                : `
+                    <div class="weight-card">
+                        <div class="weight-icon">${escapeHTML(item.icon || "✨")}</div>
+                        <div class="weight-value">${escapeHTML(item.value)}</div>
+                        <div class="weight-label">${escapeHTML(item.unit)}</div>
+                    </div>
+                `;
+
+            return `
+                <article class="card" data-index="${index}">
+                    ${visual}
+                    <div class="info">
+                        <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
+                        <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
+                        <p>${iconFor(item.type)} ${escapeHTML(item.type)}</p>
+                        <span class="badge">🌿 Özge Lifestyle</span>
+                    </div>
+                </article>
             `;
-
-        return `
-            <article class="card" data-index="${index}">
-                ${visual}
-                <div class="info">
-                    <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
-                    <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                    <p>${getTypeIcon(item.type)} ${escapeHTML(item.type)}</p>
-                    <span class="badge">🌿 Özge Lifestyle</span>
-                </div>
-            </article>
-        `;
-    }).join("");
-}
-
-function updateStats(items) {
-    const names = new Set(items.map(item => item.name).filter(Boolean));
-    photoCount.textContent = items.length;
-    participantCount.textContent = names.size;
-}
-
-function createDayOptions() {
-    daySelect.innerHTML = `<option value="all">📅 Tüm Günler</option>`;
-    for (let i = 1; i <= 28; i++) {
-        daySelect.innerHTML += `<option value="${i}">${i}. Gün</option>`;
-    }
-}
-
-function bindEvents() {
-    daySelect.addEventListener("change", e => {
-        state.day = e.target.value;
-        applyFilters();
-    });
-
-    categorySelect.addEventListener("change", e => {
-        state.category = e.target.value;
-        applyFilters();
-    });
-
-    gallery.addEventListener("click", e => {
-        const card = e.target.closest(".card");
-        if (!card) return;
-
-        const item = filteredItems[Number(card.dataset.index)];
-        if (!item || !item.image) return;
-
-        openLightbox(item);
-    });
-
-    closeBtn.addEventListener("click", closeLightbox);
-    lightbox.addEventListener("click", e => {
-        if (e.target === lightbox) closeLightbox();
-    });
-
-    document.addEventListener("keydown", e => {
-        if (e.key === "Escape") closeLightbox();
-    });
-}
-
-function openLightbox(item) {
-    lightboxImage.src = item.image;
-    lightboxName.textContent = item.name || "İsimsiz Katılımcı";
-    lightboxMeta.textContent = `${item.day} • ${item.type}`;
-    lightbox.classList.add("active");
-    document.body.style.overflow = "hidden";
-}
-
-function closeLightbox() {
-    lightbox.classList.remove("active");
-    lightboxImage.src = "";
-    document.body.style.overflow = "";
-}
-
-function convertImageUrl(value) {
-    if (!value) return "";
-    return String(value)
-        .trim()
-        .replace(/&amp;/g, "&")
-        .replace(/\\u003d/g, "=")
-        .replace(/\\u0026/g, "&");
-}
-
-function clean(cell) {
-    if (cell === null || cell === undefined) return "";
-
-    if (typeof cell === "object") {
-        if (cell.v !== null && cell.v !== undefined) return String(cell.v).trim();
-        if (cell.f !== null && cell.f !== undefined) return String(cell.f).trim();
-        return "";
+        }).join("");
     }
 
-    return String(cell).trim();
-}
+    function updateStats() {
+        const names = new Set(filteredItems.map(i => i.name).filter(Boolean));
+        photoCount.textContent = filteredItems.length;
+        participantCount.textContent = names.size;
+    }
 
-function normalizeText(value) {
-    return String(value || "")
-        .trim()
-        .toLocaleLowerCase("tr");
-}
+    function createDayOptions() {
+        daySelect.innerHTML = `<option value="all">📅 Tüm Günler</option>`;
+        for (let i = 1; i <= 28; i++) {
+            daySelect.innerHTML += `<option value="${i}">${i}. Gün</option>`;
+        }
+    }
 
-function getTypeIcon(type) {
-    if (type === "Tartı") return "⚖️";
-    if (type === "Su") return "💧";
-    if (type.includes("Yürüyüş")) return "🚶";
-    return "🍽️";
-}
+    function bindEvents() {
+        daySelect.addEventListener("change", e => {
+            selectedDay = e.target.value;
+            render();
+        });
 
-function escapeHTML(value) {
-    return String(value || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
+        categorySelect.addEventListener("change", e => {
+            selectedCategory = e.target.value;
+            render();
+        });
+
+        gallery.addEventListener("click", e => {
+            const card = e.target.closest(".card");
+            if (!card) return;
+
+            const item = filteredItems[Number(card.dataset.index)];
+            if (!item || !item.image) return;
+
+            lightboxImage.src = item.image;
+            lightboxName.textContent = item.name;
+            lightboxMeta.textContent = `${item.day} • ${item.type}`;
+            lightbox.classList.add("active");
+            document.body.style.overflow = "hidden";
+        });
+
+        closeBtn.addEventListener("click", closeLightbox);
+
+        lightbox.addEventListener("click", e => {
+            if (e.target === lightbox) closeLightbox();
+        });
+
+        document.addEventListener("keydown", e => {
+            if (e.key === "Escape") closeLightbox();
+        });
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove("active");
+        lightboxImage.src = "";
+        document.body.style.overflow = "";
+    }
+
+    function matchesType(selected, item) {
+        if (!selected) return true;
+
+        const s = normalize(selected);
+        const t = normalize(item.type);
+        const l = normalize(item.label);
+
+        return s === t || s === l || s.includes(l) || t.includes(s);
+    }
+
+    function categoryToType(category) {
+        const map = {
+            "Kahvaltı": "Sabah Kahvaltısı",
+            "Öğle": "Öğle Yemeği",
+            "Akşam": "Akşam Yemeği",
+            "Yürüyüş": "Yürüyüş",
+            "Su": "Su",
+            "Tartı": "Tartı",
+            "Diğer": "Diğer"
+        };
+
+        return map[category] || category;
+    }
+
+    function clean(cell) {
+        if (cell === null || cell === undefined) return "";
+
+        if (typeof cell === "object") {
+            if (cell.v !== null && cell.v !== undefined) return String(cell.v).trim();
+            if (cell.f !== null && cell.f !== undefined) return String(cell.f).trim();
+            return "";
+        }
+
+        return String(cell).trim();
+    }
+
+    function cleanUrl(value) {
+        if (!value) return "";
+        return String(value)
+            .trim()
+            .replace(/&amp;/g, "&")
+            .replace(/\\u003d/g, "=")
+            .replace(/\\u0026/g, "&");
+    }
+
+    function isUrl(value) {
+        return /^https?:\/\//i.test(String(value || ""));
+    }
+
+    function normalize(value) {
+        return String(value || "").trim().toLocaleLowerCase("tr");
+    }
+
+    function iconFor(type) {
+        if (type === "Tartı") return "⚖️";
+        if (type === "Su") return "💧";
+        if (type === "Yürüyüş") return "🚶";
+        return "🍽️";
+    }
+
+    function escapeHTML(value) {
+        return String(value || "")
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#039;");
+    }
+});
