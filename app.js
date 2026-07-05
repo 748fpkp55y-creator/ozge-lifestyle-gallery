@@ -67,29 +67,27 @@ function normalizeRows(rows) {
     rows.forEach(row => {
         const c = row.c || [];
 
-        const name = clean(c[3]?.v);
-        const day = clean(c[4]?.v);
-        const selectedType = clean(c[5]?.v);
+        const name = clean(c[3]);
+        const day = clean(c[4]);
+        const selectedType = clean(c[5]);
 
-        const waterAmount = clean(c[6]?.v);
+        const waterAmount = clean(c[6]);
 
-        const breakfastPhoto = clean(c[7]?.v);
-        const lunchPhoto = clean(c[8]?.v);
-        const dinnerPhoto = clean(c[9]?.v);
-        const walkPhoto = clean(c[10]?.v);
+        const breakfastPhoto = clean(c[7]);
+        const lunchPhoto = clean(c[8]);
+        const dinnerPhoto = clean(c[9]);
+        const walkPhoto = clean(c[10]);
 
-        const weightPhoto = clean(c[11]?.v);
-        const weightText = clean(c[12]?.v);
-
-        const extraPhoto = clean(c[13]?.v);
+        const weightText = clean(c[12]);
+        const extraPhoto = clean(c[13]);
 
         const photoMap = [
             { type: "Sabah Kahvaltısı", label: "Kahvaltı", image: breakfastPhoto },
             { type: "Öğle Yemeği", label: "Öğle", image: lunchPhoto },
             { type: "Akşam Yemeği", label: "Akşam", image: dinnerPhoto },
             { type: "Yürüyüş", label: "Yürüyüş", image: walkPhoto },
-            { type: "Tartı", label: "Tartı", image: weightPhoto, value: weightText, unit: "kg", icon: "⚖️" },
             { type: "Su", label: "Su", value: waterAmount, unit: "", icon: "💧" },
+            { type: "Tartı", label: "Tartı", value: weightText, unit: "kg", icon: "⚖️" },
             { type: "Diğer", label: "Diğer", image: extraPhoto }
         ];
 
@@ -99,13 +97,7 @@ function normalizeRows(rows) {
 
             if (!hasImage && !hasValue) return;
 
-            if (
-                selectedType &&
-                item.type !== selectedType &&
-                item.label !== selectedType
-            ) {
-                return;
-            }
+            if (!matchesSelectedType(selectedType, item)) return;
 
             items.push({
                 name,
@@ -121,6 +113,22 @@ function normalizeRows(rows) {
     });
 
     return items;
+}
+
+function matchesSelectedType(selectedType, item) {
+    if (!selectedType) return true;
+
+    const selected = normalizeText(selectedType);
+    const type = normalizeText(item.type);
+    const label = normalizeText(item.label);
+
+    return (
+        selected === type ||
+        selected === label ||
+        selected.includes(label) ||
+        type.includes(selected) ||
+        label.includes(selected)
+    );
 }
 
 function applyFilters() {
@@ -166,7 +174,7 @@ function renderGallery(items) {
         } else {
             visual = `
                 <div class="weight-card">
-                    <div class="weight-icon">${item.icon || "✨"}</div>
+                    <div class="weight-icon">${escapeHTML(item.icon || "✨")}</div>
                     <div class="weight-value">${escapeHTML(item.value)}</div>
                     <div class="weight-label">${escapeHTML(item.unit)}</div>
                 </div>
@@ -180,7 +188,7 @@ function renderGallery(items) {
                 <div class="info">
                     <h3>${escapeHTML(item.name || "İsimsiz Katılımcı")}</h3>
                     <p>📅 ${escapeHTML(item.day || "Gün bilgisi yok")}</p>
-                    <p>${item.type === "Tartı" ? "⚖️" : item.type === "Su" ? "💧" : "🍽️"} ${escapeHTML(item.type)}</p>
+                    <p>${getTypeIcon(item.type)} ${escapeHTML(item.type || "Kategori yok")}</p>
                     <span class="badge">🌿 Özge Lifestyle</span>
                 </div>
             </article>
@@ -262,9 +270,29 @@ function convertImageUrl(value) {
         .replace(/\\u0026/g, "&");
 }
 
-function clean(value) {
-    if (value === null || value === undefined) return "";
-    return String(value).trim();
+function clean(cell) {
+    if (cell === null || cell === undefined) return "";
+
+    if (typeof cell === "object") {
+        if (cell.v !== null && cell.v !== undefined) return String(cell.v).trim();
+        if (cell.f !== null && cell.f !== undefined) return String(cell.f).trim();
+        return "";
+    }
+
+    return String(cell).trim();
+}
+
+function normalizeText(value) {
+    return String(value || "")
+        .trim()
+        .toLocaleLowerCase("tr");
+}
+
+function getTypeIcon(type) {
+    if (type === "Tartı") return "⚖️";
+    if (type === "Su") return "💧";
+    if (type === "Yürüyüş") return "🚶";
+    return "🍽️";
 }
 
 function escapeHTML(value) {
